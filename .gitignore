@@ -1,0 +1,16 @@
+# Checkpoints are large – upload them to the HF Space directly instead
+checkpoints/
+*.pt
+*.pth
+
+# Dataset (from Train.zip / Test.zip)
+data/
+*.zip
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+per_class_accuracy.csv
+.DS_Store
