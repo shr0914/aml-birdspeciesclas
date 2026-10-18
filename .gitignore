@@ -3,6 +3,9 @@ checkpoints/
 *.pt
 *.pth
 
+# Generated Hugging Face Space folder (build_space.py) – upload it to the Space instead
+space/
+
 # Dataset (from Train.zip / Test.zip)
 data/
 *.zip

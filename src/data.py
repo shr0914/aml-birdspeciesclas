@@ -6,7 +6,10 @@ The assignment provides:
   - train.txt / test.txt, one line per image:  "<image_name> <class_label>"
 """
 
+import collections
 import os
+import re
+
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
@@ -29,6 +32,23 @@ def read_split_file(txt_path):
             name, label = line.rsplit(maxsplit=1)
             samples.append((name, int(label)))
     return samples
+
+
+def species_from_filename(fname):
+    """'Black_footed_Albatross_0004_2731401028.jpg' -> 'Black_footed_Albatross'."""
+    m = re.match(r"^(.*?)_\d+_\d+\.\w+$", os.path.basename(fname))
+    return m.group(1) if m else os.path.splitext(os.path.basename(fname))[0]
+
+
+def class_names_from_split(txt_path):
+    """Readable species names in label order, recovered from the training filenames
+    (the split files only contain numbers). Majority vote per label guards against typos."""
+    raw = read_split_file(txt_path)
+    offset = min(l for _, l in raw)
+    votes = collections.defaultdict(collections.Counter)
+    for name, label in raw:
+        votes[label - offset][species_from_filename(name)] += 1
+    return [votes[i].most_common(1)[0][0].replace("_", " ") for i in range(max(votes) + 1)]
 
 
 def find_image(img_dir, name):
@@ -66,22 +86,41 @@ class BirdDataset(Dataset):
         return img, label
 
 
-def build_transforms(img_size=224):
-    """Augmentation for training; deterministic resize + centre crop for eval."""
-    train_tf = transforms.Compose([
-        transforms.RandomResizedCrop(img_size, scale=(0.5, 1.0)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(0.2, 0.2, 0.2),
-        transforms.ToTensor(),
-        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
-    ])
-    eval_tf = transforms.Compose([
+def build_transforms(img_size=224, aug="basic", random_erasing=0.0):
+    """
+    Returns (train_tf, eval_tf). Eval is always a deterministic resize + centre crop.
+
+    Training augmentation levels – each one makes it harder to memorise the training photos:
+      none   – no augmentation: the model sees identical pixels every epoch (overfitting baseline)
+      basic  – random crop, horizontal flip, colour jitter
+      strong – random crop, flip, RandAugment (2 random edits per image, e.g. rotate,
+               shear, contrast, posterize)
+    random_erasing: probability of blanking out a random rectangle, so the model can't
+    rely on a single body part (e.g. only the head) to recognise a species.
+    """
+    resize_crop = [
         transforms.Resize(int(img_size * 1.14)),  # 256 for 224
         transforms.CenterCrop(img_size),
-        transforms.ToTensor(),
-        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
-    ])
-    return train_tf, eval_tf
+    ]
+    to_tensor = [transforms.ToTensor(), transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)]
+
+    if aug == "none":
+        train_ops = list(resize_crop)
+    elif aug in ("basic", "strong"):
+        train_ops = [
+            transforms.RandomResizedCrop(img_size, scale=(0.5, 1.0)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandAugment(num_ops=2, magnitude=9) if aug == "strong"
+            else transforms.ColorJitter(0.2, 0.2, 0.2),
+        ]
+    else:
+        raise ValueError(f"Unknown augmentation level '{aug}'")
+    train_ops += to_tensor
+    if random_erasing > 0:
+        # Runs on the normalised tensor, so erased pixels become the dataset-mean colour
+        train_ops.append(transforms.RandomErasing(p=random_erasing))
+
+    return transforms.Compose(train_ops), transforms.Compose(resize_crop + to_tensor)
 
 
 def accuracy_metrics(preds, targets, num_classes):
