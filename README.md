@@ -2,6 +2,8 @@
 
 Fine-grained classification of 200 bird species using transfer learning with a pretrained backbone (default: ConvNeXt-Tiny from `timm`).
 
+**Live web app:** https://shr0914.github.io/aml-birdspeciesclas/
+
 ## Setup
 
 ```bash
@@ -52,6 +54,7 @@ Two scripts reproduce every run in the report (outputs go to `runs/<name>/`):
 ```powershell
 powershell -ExecutionPolicy Bypass -File run_ablation.ps1                  # A–E: regularisation added step by step
 powershell -ExecutionPolicy Bypass -File run_comparison.ps1 -Reg strong    # F–J: architecture & pretraining
+powershell -ExecutionPolicy Bypass -File run_seeds.ps1                     # E repeated with seeds 1 and 2
 ```
 
 | Run | Model | Pretraining | Regularisation |
@@ -77,16 +80,20 @@ Prints **Top-1 accuracy** and **average accuracy per class**, and writes each cl
 
 Open `analysis.ipynb` after training and *Run All* (needs `matplotlib`, `pandas`, `scikit-learn`, `jupyter`). It covers the dataset, the overfitting ablation (validation accuracy, gap and validation loss per run, plus test scores), the architecture/pretraining comparison, and a detailed analysis of the final model, which is picked by **validation** score: test metrics, per-species and per-family accuracy, the confusion matrix, the most common mix-ups and the most confident mistakes. Figures and results tables are saved to `figures/`.
 
-## Web app (Hugging Face Spaces)
+## Web app (GitHub Pages)
 
-The app shows the top-5 species, a **Grad-CAM heatmap** of where the model looked, reference photos of the top 3 guesses, a low-confidence warning, example photos and a model card.
+The deployed app runs the model **in the visitor's browser** with ONNX Runtime Web, so it needs no server and is hosted free on GitHub Pages. It shows the top-5 species with temperature-scaled confidence, a Grad-CAM heatmap, reference photos of the top 3 guesses, a low-confidence warning, example photos and a model card.
 
 ```bash
-python build_space.py --ckpt runs/E_strong/best.pt --out space   # use the final model's checkpoint
-cd space && python app.py                                         # try it locally
+pip install onnx onnxruntime
+python export_web.py --ckpt runs/E_strong/best.pt --out docs   # final model's checkpoint
+python -m http.server 8000 --directory docs                     # try it at http://localhost:8000
 ```
 
-`build_space.py` assembles everything the Space needs into `space/`: app, checkpoint, species names, one reference photo per species, test-set examples, a model card with test metrics and the Space README header. Create a new Gradio Space on Hugging Face and upload the contents of `space/`.
+`export_web.py` exports the model to `docs/model.onnx` (about 56 MB: weights stored as float16, maths in float32) with Grad-CAM built into the graph, then checks it against PyTorch. It also writes `meta.json` (species names, temperature, test metrics), one reference photo per species and test-set examples, and copies the page from `web/`.
+
+To publish: commit `docs/`, push, then on GitHub open **Settings → Pages**, set **Source: Deploy from a branch**, **Branch: main**, folder **/docs**. The app goes live at `https://<username>.github.io/<repo>/`.
+
 
 ## Project structure
 
@@ -97,5 +104,8 @@ cd space && python app.py                                         # try it local
 | `evaluate.py` | Test-set Top-1 and per-class accuracy |
 | `run_ablation.ps1`, `run_comparison.ps1` | Reproduce all experiment runs |
 | `analysis.ipynb` | Graphs and results tables for the report |
-| `app.py` | Gradio app: top-5 predictions, Grad-CAM, reference photos |
-| `build_space.py` | Builds the Hugging Face Space folder |
+| `src/calibration.py` | Temperature scaling, fitted on the validation split |
+| `run_seeds.ps1` | Repeats the final configuration with two more seeds |
+| `export_web.py` | Exports the final model to ONNX and builds the web app in `docs/` |
+| `web/` | The web app page (HTML, CSS, JavaScript), copied into `docs/` |
+| `docs/` | The built, deployed web app (served by GitHub Pages) |

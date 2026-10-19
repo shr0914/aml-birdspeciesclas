@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bird Species Classifier</title>
+<meta name="description" content="Identify 200 bird species from a photo. The model runs entirely in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐦</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">CUB-200 · ConvNeXt-Tiny</p>
+    <h1>Bird Species Classifier</h1>
+    <p class="lede">Upload a photo to identify it among <strong>200 North American species</strong>. See which parts of the photo the model looked at, and compare against reference photos of its top guesses.</p>
+    <div class="model-status" id="modelStatus" role="status">
+      <div class="bar"><span id="modelBar"></span></div>
+      <span id="modelText">Loading model…</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="grid">
+    <div class="card upload-card">
+      <h2>Bird Photo</h2>
+      <label class="drop" id="drop" tabindex="0">
+        <input type="file" id="file" accept="image/*" hidden>
+        <img id="preview" alt="" hidden>
+        <span class="drop-hint" id="dropHint">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <b>Drop a Photo here</b> or click to browse<br><small>You can also paste an image</small>
+        </span>
+      </label>
+      <div class="actions">
+        <button type="button" class="btn ghost" id="clearBtn">Clear</button>
+        <button type="button" class="btn" id="browseBtn">Choose photo</button>
+      </div>
+      <div id="examplesWrap" hidden>
+        <h3>Try an unseen test photo</h3>
+        <p class="hint muted">Labelled with the true species, so you can check the model's answer.</p>
+        <div class="examples" id="examples"></div>
+      </div>
+    </div>
+
+    <div class="card result-card">
+      <h2>Prediction</h2>
+      <div class="verdict" id="verdict"><p class="muted">Upload a Photo to Get Started.</p></div>
+      <div class="truth" id="truth" hidden></div>
+      <ol class="top5" id="top5"></ol>
+      <p class="timing muted" id="timing"></p>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <div class="card-head">
+        <h2>Where the Model Looked</h2>
+        <label class="strength">Heatmap
+          <input type="range" id="strength" min="0" max="1" step="0.05" value="1">
+        </label>
+      </div>
+      <div class="cam-frame">
+        <canvas id="cam" width="448" height="448" aria-label="Grad-CAM heatmap over the photo"></canvas>
+        <p class="placeholder muted" id="camPlaceholder">The Grad-CAM Heatmap appears here.</p>
+      </div>
+      <div class="legend"><span>less</span><i></i><span>more influence</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Reference Photos of the Top 3 Guesses</h2>
+      <div class="refs" id="refs"><p class="placeholder muted">Compare the photo against each guess here.</p></div>
+    </div>
+  </section>
+
+  <details class="card about">
+    <summary><h2>About this Model :></h2></summary>
+    <div id="about"></div>
+  </details>
+</main>
+
+<footer class="wrap muted">COS30082 Assignment 1 · Runs fully in your browser with ONNX Runtime Web, so your photo is never uploaded.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.wasm.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
