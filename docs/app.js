@@ -15,18 +15,23 @@ ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardw
 async function fetchWithProgress(url, onProgress) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  // Content-Length can be the *compressed* size (GitHub Pages gzips large files),
+  // so collect chunks instead of trusting it, and only use it for the progress bar.
   const total = +res.headers.get("Content-Length") || 0;
-  if (!res.body || !total) return new Uint8Array(await res.arrayBuffer());
+  if (!res.body) return new Uint8Array(await res.arrayBuffer());
   const reader = res.body.getReader();
-  const buf = new Uint8Array(total);
+  const chunks = [];
   let got = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    buf.set(value, got);
+    chunks.push(value);
     got += value.length;
-    onProgress(got / total, got, total);
+    if (total) onProgress(Math.min(got / total, 1), got, Math.max(total, got));
   }
+  const buf = new Uint8Array(got);
+  let offset = 0;
+  for (const c of chunks) { buf.set(c, offset); offset += c.length; }
   return buf;
 }
 
